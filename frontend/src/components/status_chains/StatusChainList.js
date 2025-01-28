@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 const StatusChainList = () => {
-    const [statusChains, setStatusChains] = useState([]);
+    const [statusChains, setStatusChains] = useState(null);
 
     useEffect(() => {
       const fetchStatusChains = async () => {
         try {
           const response = await api.get('/status-chains');
+          console.log("API response:", response)
           setStatusChains(response.data);
         } catch (error) {
-            console.error('Error fetching status chains:', error)
+            console.error('Error fetching status chains:', error);
+          setStatusChains([]);
         }
       };
         fetchStatusChains();
@@ -31,6 +33,7 @@ const StatusChainList = () => {
       <div>
         <h2>Status Chains</h2>
           <Link to="/status-chains/new">Create New Status Chain</Link>
+          {statusChains && statusChains.length > 0 ? (
           <table>
               <thead>
                 <tr>
@@ -52,6 +55,9 @@ const StatusChainList = () => {
                 ))}
                 </tbody>
             </table>
+             ) : (
+                <p>No status chains found</p>
+          )}
       </div>
     );
 };

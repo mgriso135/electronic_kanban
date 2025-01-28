@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
 const KanbanChainList = () => {
-  const [kanbanChains, setKanbanChains] = useState([]);
+  const [kanbanChains, setKanbanChains] = useState(null);
 
   useEffect(() => {
     const fetchKanbanChains = async () => {
       try {
         const response = await api.get('/kanban-chains');
+        console.log("API response:", response);
         setKanbanChains(response.data);
       } catch (error) {
         console.error('Error fetching kanban chains:', error);
+        setKanbanChains([]); // Set to empty array on error
       }
     };
     fetchKanbanChains();
@@ -31,6 +33,7 @@ const KanbanChainList = () => {
     <div>
       <h2>Kanban Chains</h2>
           <Link to="/kanban-chains/new">Create New Kanban Chain</Link>
+          {kanbanChains && kanbanChains.length > 0 ? (
           <table>
               <thead>
               <tr>
@@ -47,7 +50,7 @@ const KanbanChainList = () => {
               </tr>
               </thead>
               <tbody>
-                {kanbanChains.map(chain => (
+                {kanbanChains?.map(chain => (
                  <tr key={chain.id}>
                     <td>{chain.id}</td>
                     <td>{chain.cliente_id}</td>
@@ -66,6 +69,9 @@ const KanbanChainList = () => {
                 ))}
               </tbody>
           </table>
+          ) : (
+            <p>No Kanban chains found</p>
+          )}
     </div>
   );
 };

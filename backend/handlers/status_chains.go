@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -28,22 +29,42 @@ func GetStatusChainsHandler(db *sql.DB) http.HandlerFunc {
 // CreateStatusChainHandler returns a handler for POST /api/status-chains
 func CreateStatusChainHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var statusChain models.StatusChain
-		err := json.NewDecoder(r.Body).Decode(&statusChain)
+		log.Println("CreateStatusChainHandler: Starting") // Log entry
+		var statusChainRequest struct {
+			StatusChain     models.StatusChain         `json:"status_chain"`
+			StatusesUpdates []models.StatusChainStatus `json:"statuses"` // Expecting statuses in request now
+		}
+		err := json.NewDecoder(r.Body).Decode(&statusChainRequest)
 		if err != nil {
+			log.Printf("CreateStatusChainHandler: Invalid request body: %v", err)
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
+		log.Printf("CreateStatusChainHandler: Request body decoded, data: %+v", statusChainRequest) // Log received data
 
-		newStatusChain, err := createStatusChain(db, statusChain)
+		newStatusChain, err := createStatusChain(db, statusChainRequest.StatusChain)
 		if err != nil {
+			log.Printf("CreateStatusChainHandler: Failed to create status chain: %v", err)
 			http.Error(w, "Failed to create status chain", http.StatusInternalServerError)
 			return
+		}
+		log.Printf("CreateStatusChainHandler: Status chain created successfully, ID: %d", newStatusChain.StatusChainID) // Log success
+
+		// Insert linked statuses into status_chains_statuses
+		if len(statusChainRequest.StatusesUpdates) > 0 {
+			err = insertStatusChainStatuses(db, newStatusChain.StatusChainID, statusChainRequest.StatusesUpdates)
+			if err != nil {
+				log.Printf("CreateStatusChainHandler: Failed to insert status chain statuses: %v", err)
+				http.Error(w, "Failed to insert status chain statuses", http.StatusInternalServerError)
+				return
+			}
+			log.Println("CreateStatusChainHandler: Status chain statuses inserted successfully")
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(newStatusChain)
+		log.Println("CreateStatusChainHandler: Finished successfully") // Log exit
 	}
 }
 
@@ -166,6 +187,7 @@ func GetStatusChainStatusesHandler(db *sql.DB) http.HandlerFunc {
 // UpdateStatusChainStatusesHandler handles PUT requests to update statuses in a status chain (order, customer_supplier)
 func UpdateStatusChainStatusesHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("UpdateStatusChainStatusesHandler: Starting") // Log entry
 		vars := mux.Vars(r)
 		statusChainIDStr, ok := vars["statusChainId"]
 		if !ok {
@@ -181,18 +203,22 @@ func UpdateStatusChainStatusesHandler(db *sql.DB) http.HandlerFunc {
 		var statusChainStatusesUpdates []models.StatusChainStatus // Assuming you'll create this model
 		err = json.NewDecoder(r.Body).Decode(&statusChainStatusesUpdates)
 		if err != nil {
+			log.Printf("UpdateStatusChainStatusesHandler: Invalid request body: %v", err)
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
+		log.Printf("UpdateStatusChainStatusesHandler: Request body decoded, StatusChainID: %d, StatusUpdates: %+v", statusChainID, statusChainStatusesUpdates) // Log received data
 
 		updatedStatuses, err := updateStatusChainStatuses(db, statusChainID, statusChainStatusesUpdates)
 		if err != nil {
+			log.Printf("UpdateStatusChainStatusesHandler: Failed to update statuses for status chain: %v", err)
 			http.Error(w, "Failed to update statuses for status chain", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(updatedStatuses)
+		log.Println("UpdateStatusChainStatusesHandler: Finished successfully") // Log exit
 	}
 }
 
@@ -217,17 +243,22 @@ func getStatusChains(db *sql.DB) ([]models.StatusChain, error) {
 }
 
 func createStatusChain(db *sql.DB, statusChain models.StatusChain) (*models.StatusChain, error) {
+	log.Printf("createStatusChain: Starting with data: %+v", statusChain) // Log entry
 	sqlStatement := `
 		INSERT INTO status_chains (name)
 		VALUES ($1)
 		RETURNING status_chain_id, name`
+	log.Printf("createStatusChain: SQL Query: %s, Parameters: [%s]", sqlStatement, statusChain.Name) // Log SQL query
 	var newStatusChain models.StatusChain
 	err := db.QueryRow(sqlStatement, statusChain.Name).Scan(
 		&newStatusChain.StatusChainID, &newStatusChain.Name,
 	)
 	if err != nil {
-		return nil, err
+		log.Printf("createStatusChain: Error executing query: %v", err) // Log error
+		return nil, fmt.Errorf("createStatusChain: error executing query: %w", err)
 	}
+	log.Printf("createStatusChain: Status chain created succesfully, ID: %d, Name: %s", newStatusChain.StatusChainID, newStatusChain.Name) // Log success
+
 	return &newStatusChain, nil
 }
 
@@ -316,11 +347,48 @@ func getStatusChainStatuses(db *sql.DB, statusChainID int64) ([]map[string]inter
 	return statuses, nil
 }
 
-// updateStatusChainStatuses updates the statuses within a status chain (order, customer_supplier).
-func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates []models.StatusChainStatus) ([]map[string]interface{}, error) {
+// insertStatusChainStatuses inserts multiple status_chains_statuses records in a transaction
+func insertStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates []models.StatusChainStatus) error {
+	log.Println("insertStatusChainStatuses: Starting, StatusChainID:", statusChainID, ", StatusUpdates:", statusesUpdates) // Log entry
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %w", err)
+		return fmt.Errorf("insertStatusChainStatuses: error starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO status_chains_statuses (status_chain_id, status_id, "order", customer_supplier)
+		VALUES ($1, $2, $3, $4)
+	`)
+	if err != nil {
+		return fmt.Errorf("insertStatusChainStatuses: error preparing statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, statusUpdate := range statusesUpdates {
+		log.Printf("updateStatusChainStatuses: Processing status update: StatusChainID=%d, StatusUpdate=%+v", statusChainID, statusUpdate) // Log each status update
+		_, err = stmt.Exec(statusChainID, statusUpdate.StatusID, statusUpdate.Order, statusUpdate.CustomerSupplier)
+		if err != nil {
+			log.Printf("insertStatusChainStatuses: Error inserting status (StatusID: %d) for chain: %v", statusUpdate.StatusID, err) // Log individual status insert error
+			return fmt.Errorf("insertStatusChainStatuses: error executing insert for status_id %d: %w", statusUpdate.StatusID, err)
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("insertStatusChainStatuses: Error committing transaction: %v", err) // Log transaction commit error
+		return fmt.Errorf("insertStatusChainStatuses: error committing transaction: %w", err)
+	}
+	log.Println("insertStatusChainStatuses: Status chain statuses inserted successfully") // Log success
+	return nil
+}
+
+// updateStatusChainStatuses updates the statuses within a status chain (order, customer_supplier).
+func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates []models.StatusChainStatus) ([]map[string]interface{}, error) {
+	log.Println("updateStatusChainStatuses: Starting, StatusChainID:", statusChainID, ", StatusUpdates:", statusesUpdates) // Log entry
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("updateStatusChainStatuses: error starting transaction: %w", err)
 	}
 	defer tx.Rollback() // Rollback if function exits early
 
@@ -331,26 +399,31 @@ func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates 
 		WHERE status_chain_id = $1 AND status_id = $2
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("error preparing update statement: %w", err)
+		return nil, fmt.Errorf("updateStatusChainStatuses: error preparing update statement: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, statusUpdate := range statusesUpdates {
+		log.Printf("updateStatusChainStatuses: Processing status update: StatusChainID=%d, StatusUpdate=%+v", statusChainID, statusUpdate) // Log each status update
 		_, err := stmt.Exec(statusChainID, statusUpdate.StatusID, statusUpdate.Order, statusUpdate.CustomerSupplier)
 		if err != nil {
-			return nil, fmt.Errorf("error updating status chain status (status_id: %d): %w", statusUpdate.StatusID, err)
+			log.Printf("updateStatusChainStatuses: Error updating status chain status (status_id: %d): %v", statusUpdate.StatusID, err) // Log error for each status update
+			return nil, fmt.Errorf("updateStatusChainStatuses: error updating status chain status (status_id: %d): %w", statusUpdate.StatusID, err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("error committing transaction: %w", err)
+		log.Printf("updateStatusChainStatuses: Error committing transaction: %v", err) // Log transaction commit error
+		return nil, fmt.Errorf("updateStatusChainStatuses: error committing transaction: %w", err)
 	}
 
 	// After successful update, retrieve and return the updated statuses for the chain
 	updatedStatuses, err := getStatusChainStatuses(db, statusChainID)
 	if err != nil {
+		log.Printf("updateStatusChainStatuses: Error retrieving updated status chain statuses: %v", err) // Log error on retrieval
 		return nil, fmt.Errorf("error retrieving updated status chain statuses: %w", err)
 	}
+	log.Println("updateStatusChainStatuses: Status chain statuses updated successfully") // Log success
 
 	return updatedStatuses, nil
 }
