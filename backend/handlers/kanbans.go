@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -58,14 +59,17 @@ func GetKanbanHandler(db *sql.DB) http.HandlerFunc {
 // UpdateKanbanHandler returns a handler for PUT/PATCH /api/kanbans/{id} - Primarily for status updates
 func UpdateKanbanHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("UpdateKanbanHandler: Starting")
 		vars := mux.Vars(r)
 		idStr, ok := vars["id"]
 		if !ok {
+			log.Println("UpdateKanbanHandler: Kanban ID is required")
 			http.Error(w, "Kanban ID is required", http.StatusBadRequest)
 			return
 		}
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
+			log.Printf("UpdateKanbanHandler: Invalid kanban ID: %v", err)
 			http.Error(w, "Invalid kanban ID", http.StatusBadRequest)
 			return
 		}
@@ -73,18 +77,23 @@ func UpdateKanbanHandler(db *sql.DB) http.HandlerFunc {
 		var kanbanUpdates map[string]interface{} // Allow partial updates
 		err = json.NewDecoder(r.Body).Decode(&kanbanUpdates)
 		if err != nil {
+			log.Printf("UpdateKanbanHandler: Invalid request body: %v", err)
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
+		log.Printf("UpdateKanbanHandler: Updating kanban with ID %d, data: %+v", id, kanbanUpdates)
 
 		updatedKanban, err := updateKanban(db, id, kanbanUpdates)
 		if err != nil {
+			log.Printf("UpdateKanbanHandler: Failed to update kanban: %v", err)
 			http.Error(w, "Failed to update kanban", http.StatusInternalServerError)
 			return
 		}
 
+		log.Printf("UpdateKanbanHandler: Kanban updated successfully: %+v", updatedKanban)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(updatedKanban)
+		log.Println("UpdateKanbanHandler: Finished successfully")
 	}
 }
 
@@ -136,6 +145,7 @@ func getKanbanByID(db *sql.DB, id int64) (*models.Kanban, error) {
 }
 
 func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models.Kanban, error) {
+	log.Printf("updateKanban: Starting, ID: %d, updates: %+v", id, updates)
 	// Start building the UPDATE query dynamically
 	sqlStatement := `UPDATE kanbans SET data_aggiornamento = NOW()` // Always update data_aggiornamento
 	var args []interface{}
@@ -150,6 +160,7 @@ func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models
 
 	sqlStatement += fmt.Sprintf(" WHERE id = $%d RETURNING id, data_aggiornamento, leadtime_days, is_active, kanban_chain_id, status_chain_id, status_current, tipo_contenitore, quantity", argIndex+1)
 	args = append(args, id)
+	log.Printf("updateKanban: SQL Query: %s, Parameters: %+v", sqlStatement, args)
 
 	var updatedKanban models.Kanban
 	row := db.QueryRow(sqlStatement, args...) // Pass all arguments as slice
@@ -158,14 +169,17 @@ func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models
 		&updatedKanban.StatusChainID, &updatedKanban.StatusCurrent, &updatedKanban.TipoContenitore, &updatedKanban.Quantity,
 	)
 	if err != nil {
+		log.Printf("updateKanban: Error updating kanban: %v", err)
 		return nil, err
 	}
+	log.Printf("updateKanban: Kanban updated succesfully with data: %+v", updatedKanban)
 
 	// Record history of status change if status_current was updated
 	if _, statusUpdated := updates["status_current"]; statusUpdated {
+		log.Println("updateKanban: Recording status history")
 		if err := recordKanbanHistory(db, &updatedKanban, updates); err != nil {
 			// Log the history recording error, but don't fail the main update
-			fmt.Printf("Error recording kanban history: %v\n", err) // Or use a proper logger
+			fmt.Printf("updateKanban: Error recording kanban history: %v\n", err) // Or use a proper logger
 		}
 	}
 

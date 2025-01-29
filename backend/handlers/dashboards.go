@@ -97,7 +97,8 @@ func getKanbansForSupplierDashboard(db *sql.DB, supplierID int64) ([]map[string]
 			k.quantity,
 			s.name AS status_name,
 			s.color AS status_color,
-			scs.customer_supplier
+			scs.customer_supplier,
+            k.status_current  -- THIS LINE WAS MISSING - ADDED NOW
 		FROM
 			kanbans k
 		JOIN
@@ -130,9 +131,11 @@ func getKanbansForSupplierDashboard(db *sql.DB, supplierID int64) ([]map[string]
 		var statusName string
 		var statusColor string
 		var customerSupplier int
+		var statusCurrent int64 // ADDED statusCurrent
 
 		if err := rows.Scan(
 			&kanbanID, &prodottoCodice, &productName, &tipoContenitore, &quantity, &statusName, &statusColor, &customerSupplier,
+			&statusCurrent, // ADDED scan for statusCurrent
 		); err != nil {
 			return nil, fmt.Errorf("error scanning kanban row for supplier dashboard: %w", err)
 		}
@@ -145,7 +148,8 @@ func getKanbansForSupplierDashboard(db *sql.DB, supplierID int64) ([]map[string]
 			"quantity":          quantity,
 			"status_name":       statusName,
 			"status_color":      statusColor,
-			"customer_supplier": customerSupplier, // Add customer_supplier info
+			"customer_supplier": customerSupplier,
+			"status_current":    statusCurrent, // ADDED status_current to the map
 		})
 	}
 
@@ -167,7 +171,8 @@ func getKanbansForCustomerDashboard(db *sql.DB, customerID int64) ([]map[string]
 			k.quantity,
 			s.name AS status_name,
 			s.color AS status_color,
-			scs.customer_supplier
+			scs.customer_supplier,
+            k.status_current  -- THIS LINE WAS MISSING - ADDED NOW
 		FROM
 			kanbans k
 		JOIN
@@ -200,9 +205,11 @@ func getKanbansForCustomerDashboard(db *sql.DB, customerID int64) ([]map[string]
 		var statusName string
 		var statusColor string
 		var customerSupplier int
+		var statusCurrent int64 // ADDED statusCurrent
 
 		if err := rows.Scan(
 			&kanbanID, &prodottoCodice, &productName, &tipoContenitore, &quantity, &statusName, &statusColor, &customerSupplier,
+			&statusCurrent, // ADDED scan for statusCurrent
 		); err != nil {
 			return nil, fmt.Errorf("error scanning kanban row for customer dashboard: %w", err)
 		}
@@ -215,7 +222,8 @@ func getKanbansForCustomerDashboard(db *sql.DB, customerID int64) ([]map[string]
 			"quantity":          quantity,
 			"status_name":       statusName,
 			"status_color":      statusColor,
-			"customer_supplier": customerSupplier, // Add customer_supplier info
+			"customer_supplier": customerSupplier,
+			"status_current":    statusCurrent, // ADDED status_current to the map
 		})
 	}
 

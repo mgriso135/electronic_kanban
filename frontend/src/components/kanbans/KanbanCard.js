@@ -5,14 +5,14 @@ const KanbanCard = ({ kanban, dashboardType, setKanbans }) => {
 
   const handleStatusChange = async () => {
     try {
-      const response = await api.put(`/kanbans/${kanban.kanban_id}`, {status_current: parseInt(kanban.status_id, 10) });
+      const response = await api.put(`/kanbans/${kanban.kanban_id}`, {status_current: parseInt(kanban.status_current, 10) });
       if(dashboardType==="supplier")
         setKanbans(prevKanbans => {
-          const updatedKanbansByProduct = { ...prevKanbans }
+          const updatedKanbansByProduct = prevKanbans;
             for (const product in updatedKanbansByProduct){
               updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
                 if(k.kanban_id === kanban.kanban_id) {
-                  return {...k, status_name: response.data.status_name, status_color: response.data.status_color, customer_supplier: response.data.customer_supplier};
+                  return {...k, status_name: response.data.status_name, status_color: response.data.status_color, customer_supplier: response.data.customer_supplier, status_current: response.data.status_current};
                 } else {
                     return k;
                 }
@@ -22,11 +22,11 @@ const KanbanCard = ({ kanban, dashboardType, setKanbans }) => {
         });
     else if(dashboardType === "customer") {
         setKanbans(prevKanbans => {
-          const updatedKanbansByProduct = { ...prevKanbans }
+          const updatedKanbansByProduct = prevKanbans;
             for (const product in updatedKanbansByProduct){
               updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
                 if(k.kanban_id === kanban.kanban_id) {
-                  return {...k, status_name: response.data.status_name, status_color: response.data.status_color, customer_supplier: response.data.customer_supplier};
+                  return {...k, status_name: response.data.status_name, status_color: response.data.status_color, customer_supplier: response.data.customer_supplier, status_current: response.data.status_current};
                 } else {
                     return k;
                 }
@@ -41,16 +41,17 @@ const KanbanCard = ({ kanban, dashboardType, setKanbans }) => {
   };
 
   return (
-      <div className="kanban-card">
+      <div className="kanban-card" style={{borderColor: kanban.status_color, borderWidth: '3px' }}>
+        <h2>{kanban.status_name}</h2>  {/* Status name as main title, using <h2> */}
           <p><strong>Product:</strong> {kanban.product_name}</p>
         <p><strong>Container:</strong> {kanban.tipo_contenitore}</p>
           <p><strong>Quantity:</strong> {kanban.quantity}</p>
           <button
               style={{ backgroundColor: kanban.status_color, color: 'white', padding: '10px'}}
               onClick={handleStatusChange}
-              disabled={kanban.customer_supplier !== 1 && dashboardType === 'supplier' || kanban.customer_supplier !== 2 && dashboardType === 'customer'}
+               disabled={dashboardType === 'supplier' ? kanban.customer_supplier !== 1 : kanban.customer_supplier !== 2}
           >
-              {kanban.status_name}
+              Change Status
           </button>
 
       </div>

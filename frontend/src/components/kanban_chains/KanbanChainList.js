@@ -9,11 +9,10 @@ const KanbanChainList = () => {
     const fetchKanbanChains = async () => {
       try {
         const response = await api.get('/kanban-chains');
-        console.log("API response:", response);
         setKanbanChains(response.data);
       } catch (error) {
         console.error('Error fetching kanban chains:', error);
-        setKanbanChains([]); // Set to empty array on error
+          setKanbanChains([]);
       }
     };
     fetchKanbanChains();
@@ -22,7 +21,7 @@ const KanbanChainList = () => {
   const handleDelete = async (id) => {
     try {
       await api.delete(`/kanban-chains/${id}`);
-      setKanbanChains(kanbanChains.filter(chain => chain.id !== id));
+        setKanbanChains(kanbanChains.filter(chain => chain.id !== id));
     } catch (error) {
         console.error("Error deleting kanban chain:", error);
     }
@@ -38,9 +37,9 @@ const KanbanChainList = () => {
               <thead>
               <tr>
                   <th>ID</th>
-                  <th>Customer ID</th>
-                  <th>Supplier ID</th>
-                  <th>Product ID</th>
+                  <th>Customer</th>
+                  <th>Supplier</th>
+                  <th>Product</th>
                   <th>Lead Time</th>
                   <th>Container Type</th>
                   <th>Quantity</th>
@@ -53,14 +52,14 @@ const KanbanChainList = () => {
                 {kanbanChains?.map(chain => (
                  <tr key={chain.id}>
                     <td>{chain.id}</td>
-                    <td>{chain.cliente_id}</td>
-                    <td>{chain.fornitore_id}</td>
-                    <td>{chain.prodotto_codice}</td>
+                    <td>{chain.customer_name}</td>
+                    <td>{chain.supplier_name}</td>
+                    <td>{chain.product_name} ({chain.prodotto_codice})</td>
                     <td>{chain.leadtime_days}</td>
                     <td>{chain.tipo_contenitore}</td>
                     <td>{chain.quantity}</td>
                     <td>{chain.status_chain_id}</td>
-                     <td>{chain.no_of_active_kanbans}</td>
+                    <td>{chain.no_of_active_kanbans}</td>
                     <td>
                        <Link to={`/kanban-chains/${chain.id}/edit`}>Edit</Link>
                       <button onClick={() => handleDelete(chain.id)}>Delete</button>
@@ -69,8 +68,8 @@ const KanbanChainList = () => {
                 ))}
               </tbody>
           </table>
-          ) : (
-            <p>No Kanban chains found</p>
+           ) : (
+             <p>No Kanban chains found</p>
           )}
     </div>
   );
