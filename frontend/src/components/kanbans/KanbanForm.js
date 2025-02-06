@@ -15,6 +15,7 @@ const KanbanForm = () => {
     const [isEdit, setIsEdit] = useState(false);
     const [availableKanbanChains, setAvailableKanbanChains] = useState([]);
     const [availableStatuses, setAvailableStatuses] = useState([]);
+    const [statusChainStatuses, setStatusChainStatuses] = useState([]); // NEW state for status chain statuses
 
 
     useEffect(() => {
@@ -53,7 +54,7 @@ const KanbanForm = () => {
     }, [id]);
 
     useEffect(() => {
-        // Fetch Kanban Chain details when kanbanChainId changes
+        // Fetch Kanban Chain details and statuses when kanbanChainId changes
         if (kanbanChainId) {
             const fetchKanbanChainDetails = async () => {
                 try {
@@ -63,21 +64,28 @@ const KanbanForm = () => {
                     setLeadtimeDays(String(kc.leadtime_days));
                     setTipoContenitore(kc.tipo_contenitore);
                     setQuantity(String(kc.quantity));
+
+                    // Fetch statuses for the selected status chain
+                    const statusesResponse = await api.get(`/status-chains/${kc.status_chain_id}/statuses`);
+                    setStatusChainStatuses(statusesResponse.data); // Set status chain statuses
+
                 } catch (error) {
                     console.error('Error fetching kanban chain details:', error);
                     setStatusChainId(''); // Clear status chain if error
                     setLeadtimeDays('');
                     setTipoContenitore('');
                     setQuantity('');
+                    setStatusChainStatuses([]); // Clear status chain statuses on error
                 }
             };
             fetchKanbanChainDetails();
         } else {
-            // Clear derived fields if no kanban chain is selected
+            // Clear derived fields and status chain statuses if no kanban chain is selected
             setStatusChainId('');
             setLeadtimeDays('');
             setTipoContenitore('');
             setQuantity('');
+            setStatusChainStatuses([]); // Clear status chain statuses
         }
     }, [kanbanChainId]);
 
@@ -87,16 +95,16 @@ const KanbanForm = () => {
         const kanbanData = {
             ...(isEdit ? {
                 leadtime_days: parseInt(leadtimeDays, 10),
-                tipo_contenitore: tipoContenitore,
+                tipoContenitore: tipoContenitore,
                 quantity: parseFloat(quantity),
             } : { // Include all fields in create mode
                 kanban_chain_id: parseInt(kanbanChainId, 10),
                 status_chain_id: parseInt(statusChainId, 10),
                 status_current: parseInt(statusCurrent, 10),
                 leadtime_days: parseInt(leadtimeDays, 10),
-                tipo_contenitore: tipoContenitore,
+                tipoContenitore: tipoContenitore,
                 quantity: parseFloat(quantity),
-                is_active: true // Default to true for new kanbans
+                is_active: isActive,
             })
         };
 
@@ -118,7 +126,7 @@ const KanbanForm = () => {
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>Kanban Chain:</label>
-                    <select value={kanbanChainId} onChange={(e) => setKanbanChainId(e.target.value)} required> {/* Required for Kanban Chain */}
+                    <select value={kanbanChainId} onChange={(e) => setKanbanChainId(e.target.value)} required>
                         <option value="">Select Kanban Chain</option>
                         {availableKanbanChains.map(chain => (
                             <option key={chain.id} value={chain.id}>{chain.id} (Customer: {chain.customer_name}, Product: {chain.product_name})</option>
@@ -127,33 +135,33 @@ const KanbanForm = () => {
                 </div>
                 <div>
                     <label>Status Chain:</label>
-                    <input type="text" value={statusChainId} disabled /> {/* Disabled and pre-filled */}
+                    <input type="text" value={statusChainId} disabled />
                 </div>
                 <div>
                     <label>Current Status:</label>
-                    <select value={statusCurrent} onChange={(e) => setStatusCurrent(e.target.value)} required> {/* Required for Current Status */}
+                    <select value={statusCurrent} onChange={(e) => setStatusCurrent(e.target.value)} required>
                         <option value="">Select Status</option>
-                        {availableStatuses.map(status => (
-                            <option key={status.status_id} value={status.status_id}>{status.name}</option>
+                        {statusChainStatuses.map(status => ( // Use statusChainStatuses for options
+                            <option key={status.status_id} value={status.status_id}>{status.status_name}</option> // Use status_name from chain statuses
                         ))}
                     </select>
                 </div>
                 <div>
                     <label>Lead Time (days):</label>
-                    <input type="number" value={leadtimeDays} disabled /> {/* Disabled and pre-filled */}
+                    <input type="text" value={leadtimeDays} disabled />
                 </div>
                 <div>
                     <label>Container Type:</label>
-                    <input type="text" value={tipoContenitore} disabled /> {/* Disabled and pre-filled */}
+                    <input type="text" value={tipoContenitore} disabled />
                 </div>
                 <div>
                     <label>Quantity:</label>
-                    <input type="number" value={quantity} disabled /> {/* Disabled and pre-filled */}
+                    <input type="number" value={quantity} disabled />
                 </div>
 
                 <div>
                     <label>Is Active:</label>
-                    <input type="checkbox" checked={true} disabled={true} />{/* Disabled and default checked to true */}
+                    <input type="checkbox" checked={true} disabled={true} />
                 </div>
 
 
