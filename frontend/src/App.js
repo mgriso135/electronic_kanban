@@ -13,6 +13,7 @@ import KanbanChainForm from './components/kanban_chains/KanbanChainForm';
 import SupplierDashboard from './components/dashboards/SupplierDashboard';
 import CustomerDashboard from './components/dashboards/CustomerDashboard';
 import KanbanList from './components/kanbans/KanbanList'
+import KanbanForm from './components/kanbans/KanbanForm'
 
 function App() {
     return (
@@ -44,6 +45,9 @@ function App() {
                 <Route path="/kanban-chains/new" element={<KanbanChainForm />} />
                 <Route path="/kanban-chains/:id/edit" element={<KanbanChainForm />} />
                 <Route path="/kanbans" element={<KanbanList />} />
+                <Route path="/kanbans" element={<KanbanList />} />
+                <Route path="/kanbans/new" element={<KanbanForm />} /> {/* New route for creating Kanban */}
+                <Route path="/kanbans/:id/edit" element={<KanbanForm />} /> {/* New route for editing Kanban */}
                 <Route path="/supplier-dashboard" element={<SupplierDashboard />} /> {/* Generic path - no ID */}
                 <Route path="/supplier-dashboard/:supplierId" element={<SupplierDashboard />} /> {/* Path with Supplier ID */}
                 <Route path="/customer-dashboard" element={<CustomerDashboard />} /> {/* Generic path - no ID */}

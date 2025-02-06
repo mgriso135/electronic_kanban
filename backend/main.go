@@ -77,10 +77,11 @@ func main() {
 	router.HandleFunc("/api/kanban-chains/{id}", handlers.UpdateKanbanChainHandler(database)).Methods("PUT", "PATCH")
 	router.HandleFunc("/api/kanban-chains/{id}", handlers.DeleteKanbanChainHandler(database)).Methods("DELETE")
 
-	// Kanban Routes (Basic - for more complex actions, create specific endpoints)
-	router.HandleFunc("/api/kanbans", handlers.GetKanbansHandler(database)).Methods("GET")
-	router.HandleFunc("/api/kanbans/{id}", handlers.GetKanbanHandler(database)).Methods("GET")
-	router.HandleFunc("/api/kanbans/{id}", handlers.UpdateKanbanHandler(database)).Methods("PUT", "PATCH") // For status updates etc.
+	router.HandleFunc("/api/kanbans", handlers.GetKanbansHandler(database)).Methods("GET") // GET with optional product filter
+	router.HandleFunc("/api/kanbans", handlers.CreateKanbanHandler(database)).Methods("POST")
+	router.HandleFunc("/api/kanbans/{id}", handlers.GetKanbanHandler(database)).Methods("GET")             // GetKanbanHandler for GET
+	router.HandleFunc("/api/kanbans/{id}", handlers.UpdateKanbanHandler(database)).Methods("PUT", "PATCH") // UpdateKanbanHandler for PUT/PATCH
+	router.HandleFunc("/api/kanbans/{id}", handlers.DeleteKanbanHandler(database)).Methods("DELETE")
 
 	// Dashboard Routes
 	router.HandleFunc("/api/dashboards/supplier/{supplierId}", handlers.GetSupplierDashboardHandler(database)).Methods("GET")
