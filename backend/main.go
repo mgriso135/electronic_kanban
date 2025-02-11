@@ -69,6 +69,7 @@ func main() {
 	router.HandleFunc("/api/status-chains/{id}", handlers.DeleteStatusChainHandler(database)).Methods("DELETE")
 	router.HandleFunc("/api/status-chains/{statusChainId}/statuses", handlers.GetStatusChainStatusesHandler(database)).Methods("GET")
 	router.HandleFunc("/api/status-chains/{statusChainId}/statuses", handlers.UpdateStatusChainStatusesHandler(database)).Methods("PUT")
+	router.HandleFunc("/api/status-chains/{statusChainId}/statuses/{statusId}", handlers.DeleteStatusChainStatusHandler(database)).Methods("DELETE") // NEW DELETE ROUTE
 
 	// Kanban Chain Routes
 	router.HandleFunc("/api/kanban-chains", handlers.GetKanbanChainsHandler(database)).Methods("GET")

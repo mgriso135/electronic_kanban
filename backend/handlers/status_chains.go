@@ -383,9 +383,8 @@ func insertStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates 
 	return nil
 }
 
-// updateStatusChainStatuses updates the statuses within a status chain (order, customer_supplier).
 func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates []models.StatusChainStatus) ([]map[string]interface{}, error) {
-	log.Println("updateStatusChainStatuses: Starting, StatusChainID:", statusChainID, ", StatusUpdates:", statusesUpdates) // Log entry
+	log.Println("updateStatusChainStatuses: Starting, StatusChainID:", statusChainID, ", StatusUpdates:", statusesUpdates)
 	tx, err := db.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("updateStatusChainStatuses: error starting transaction: %w", err)
@@ -405,15 +404,49 @@ func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates 
 
 	for _, statusUpdate := range statusesUpdates {
 		log.Printf("updateStatusChainStatuses: Processing status update: StatusChainID=%d, StatusUpdate=%+v", statusChainID, statusUpdate) // Log each status update
-		_, err := stmt.Exec(statusChainID, statusUpdate.StatusID, statusUpdate.Order, statusUpdate.CustomerSupplier)
+
+		// **Attempt UPDATE first:**
+		updateStmt, err := tx.Prepare(`
+			UPDATE status_chains_statuses
+			SET "order" = $3, customer_supplier = $4
+			WHERE status_chain_id = $1 AND status_id = $2
+		`)
 		if err != nil {
-			log.Printf("updateStatusChainStatuses: Error updating status chain status (status_id: %d): %v", statusUpdate.StatusID, err) // Log error for each status update
+			return nil, fmt.Errorf("updateStatusChainStatuses: error preparing update statement: %w", err)
+		}
+		res, err := updateStmt.Exec(statusChainID, statusUpdate.StatusID, statusUpdate.Order, statusUpdate.CustomerSupplier)
+		if err != nil {
+			updateStmt.Close()
+			log.Printf("updateStatusChainStatuses: Error executing UPDATE statement for status_id %d: %v", statusUpdate.StatusID, err)
 			return nil, fmt.Errorf("updateStatusChainStatuses: error updating status chain status (status_id: %d): %w", statusUpdate.StatusID, err)
+		}
+		rowsAffected, _ := res.RowsAffected()
+		updateStmt.Close()
+		log.Printf("updateStatusChainStatuses: UPDATE statement executed for status_id %d, rows affected: %d", statusUpdate.StatusID, rowsAffected)
+
+		// **If no rows updated (status not found in chain), perform INSERT:**
+		if rowsAffected == 0 {
+			log.Printf("updateStatusChainStatuses: Status ID %d not found in chain %d, attempting INSERT", statusUpdate.StatusID, statusChainID)
+			insertStmt, err := tx.Prepare(`
+				INSERT INTO status_chains_statuses (status_chain_id, status_id, "order", customer_supplier)
+				VALUES ($1, $2, $3, $4)
+			`)
+			if err != nil {
+				return nil, fmt.Errorf("updateStatusChainStatuses: error preparing insert statement: %w", err)
+			}
+			_, err = insertStmt.Exec(statusChainID, statusUpdate.StatusID, statusUpdate.Order, statusUpdate.CustomerSupplier)
+			if err != nil {
+				insertStmt.Close()
+				log.Printf("updateStatusChainStatuses: Error executing INSERT statement for status_id %d: %v", statusUpdate.StatusID, err)
+				return nil, fmt.Errorf("updateStatusChainStatuses: error inserting status chain status (status_id: %d): %w", statusUpdate.StatusID, err)
+			}
+			insertStmt.Close()
+			log.Printf("updateStatusChainStatuses: INSERT statement executed for status_id %d", statusUpdate.StatusID)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		log.Printf("updateStatusChainStatuses: Error committing transaction: %v", err) // Log transaction commit error
+		log.Printf("updateStatusChainStatuses: Error committing transaction: %v", err)
 		return nil, fmt.Errorf("updateStatusChainStatuses: error committing transaction: %w", err)
 	}
 
@@ -426,4 +459,61 @@ func updateStatusChainStatuses(db *sql.DB, statusChainID int64, statusesUpdates 
 	log.Println("updateStatusChainStatuses: Status chain statuses updated successfully") // Log success
 
 	return updatedStatuses, nil
+}
+
+// DeleteStatusChainStatusHandler handles DELETE requests to remove a status from a status chain
+func DeleteStatusChainStatusHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println("DeleteStatusChainStatusHandler: Starting") // Log entry
+		vars := mux.Vars(r)
+		statusChainIDStr, ok := vars["statusChainId"]
+		if !ok {
+			http.Error(w, "Status Chain ID is required", http.StatusBadRequest)
+			return
+		}
+		statusChainID, err := strconv.ParseInt(statusChainIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid status chain ID", http.StatusBadRequest)
+			return
+		}
+
+		statusIDStr, ok := vars["statusId"]
+		if !ok {
+			http.Error(w, "Status ID is required", http.StatusBadRequest)
+			return
+		}
+		statusID, err := strconv.ParseInt(statusIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid status ID", http.StatusBadRequest)
+			return
+		}
+
+		err = deleteStatusChainStatus(db, statusChainID, statusID) // Call deleteStatusChainStatus DB function
+		if err != nil {
+			log.Printf("DeleteStatusChainStatusHandler: Failed to delete status %d from chain %d: %v", statusID, statusChainID, err)
+			http.Error(w, "Failed to delete status from status chain", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("DeleteStatusChainStatusHandler: Successfully deleted status %d from chain %d", statusID, statusChainID)
+		w.WriteHeader(http.StatusOK) // Respond with 200 OK
+		json.NewEncoder(w).Encode(map[string]string{"message": "Status deleted from status chain"})
+		log.Println("DeleteStatusChainStatusHandler: Finished successfully") // Log exit
+	}
+}
+
+// deleteStatusChainStatus removes a status from a status chain in the database
+func deleteStatusChainStatus(db *sql.DB, statusChainID int64, statusID int64) error {
+	log.Printf("deleteStatusChainStatus: Starting, StatusChainID: %d, StatusID: %d", statusChainID, statusID) // Log entry
+	sqlStatement := `
+		DELETE FROM status_chains_statuses
+		WHERE status_chain_id = $1 AND status_id = $2
+	`
+	_, err := db.Exec(sqlStatement, statusChainID, statusID)
+	if err != nil {
+		log.Printf("deleteStatusChainStatus: Error executing DELETE query: %v", err) // Log query error
+		return fmt.Errorf("deleteStatusChainStatus: error deleting status from chain: %w", err)
+	}
+	log.Println("deleteStatusChainStatus: Status chain status deleted successfully") // Log success
+	return nil
 }

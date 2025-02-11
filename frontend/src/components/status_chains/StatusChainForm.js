@@ -72,31 +72,51 @@ const StatusChainForm = () => {
         }
     };
 
-    // New function to remove a status from the chain
+    // New function to remove a status from the chain (mark for deletion)
     const removeStatusFromChain = (statusId) => {
-        setStatuses(statuses.filter(status => status.status_id !== statusId));
+        console.log("removeStatusFromChain CALLED - statusId:", statusId); // ADD LOG - Check if function is called and statusId value
+        const updatedStatuses = statuses.map(status => {
+            if (status.status_id === statusId) {
+                return { ...status, _destroy: true }; // Mark for deletion using _destroy flag
+            }
+            return status;
+        });
+        setStatuses(updatedStatuses);
+        console.log("removeStatusFromChain: setStatuses called with updatedStatuses:", updatedStatuses); // ADD LOG - Check updatedStatuses value
     };
-
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        const statusesToDelete = statuses.filter(status => status._destroy); // Filter out statuses marked for deletion
+        const statusesToUpdate = statuses.filter(status => !status._destroy); // Filter out statuses NOT marked for deletion
 
         const statusChainData = {
             status_chain: {
                 name: name,
+                ...(isEdit ? { status_chain_id: parseInt(id, 10) } : {})
             },
-            statuses: statuses?.map(status => ({
+            statuses: statusesToUpdate.map(status => ({ // Send only statuses to update
                 status_id: status.status_id,
                 order: status.order,
                 customer_supplier: status.customer_supplier
             })) || [],
         };
 
+        console.log("StatusChainForm - handleSubmit: Sending statusChainData to API:", statusChainData);
+
         try {
             if (isEdit) {
+                // **Send DELETE requests for statuses marked for deletion BEFORE PUT request:**
+                for (const statusToDelete of statusesToDelete) {
+                    console.log("StatusChainForm - handleSubmit: Deleting status ID:", statusToDelete.status_id, "from chain ID:", id);
+                    await api.delete(`/status-chains/${id}/statuses/${statusToDelete.status_id}`); // New DELETE API call
+                }
+
+
                 await api.put(`/status-chains/${id}`, statusChainData.status_chain);
-                await api.put(`/status-chains/${id}/statuses`, statusChainData.statuses);
+                await api.put(`/status-chains/${id}/statuses`, statusChainData.statuses); // Send updates for remaining statuses
+
             } else {
                 const response = await api.post('/status-chains', statusChainData);
                 if (response.data && response.data.status_chain_id) {
@@ -132,24 +152,26 @@ const StatusChainForm = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {statuses.map(status => (
-                                <tr key={status.status_id}>
-                                    <td>{status.status_name}</td>
-                                    <td><input type="number" value={status.order} onChange={e => handleStatusOrderChange(e, status.status_id)} /></td>
-                                    <td>
-                                        <select value={status.customer_supplier} onChange={(e) => handleStatusChange(e, status.status_id)}>
-                                            <option value="1">Supplier</option>
-                                            <option value="2">Customer</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <button type="button" onClick={() => removeStatusFromChain(status.status_id)}> {/* Use removeStatusFromChain */}
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+                        {statuses
+                         .filter(status => !status._destroy) // **ADD FILTER HERE - Only render non-deleted statuses**
+                         .map(status => (
+                         <tr key={status.status_id}>
+                           <td>{status.status_name}</td>
+                           <td><input type="number" value={status.order} onChange={e => handleStatusOrderChange(e,status.status_id)} /></td>
+                             <td>
+                            <select value={status.customer_supplier} onChange={(e) => handleStatusChange(e, status.status_id)}>
+                            <option value="1">Supplier</option>
+                            <option value="2">Customer</option>
+                           </select>
+                          </td>
+                         <td>
+                           <button type="button" onClick={() => removeStatusFromChain(status.status_id)}>
+                              Delete
+                           </button>
+                         </td>
+                        </tr>
+                      ))}
+                      </tbody>
                     </table>
                     :
                     <p>No Statuses Selected</p>
