@@ -78,19 +78,13 @@ const CustomerDashboard = () => {
     const handleKanbanUpdate = useCallback((updatedKanban, productID) => {
         setKanbansByProduct(prevKanbansByProduct => {
             const updatedKanbansByProduct = { ...prevKanbansByProduct };
-            for (const product in updatedKanbansByProduct) {
-                updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
+            if (updatedKanbansByProduct[productID]) {
+                // **Simplified State Update - Replace Entire Kanban Object:**
+                updatedKanbansByProduct[productID] = updatedKanbansByProduct[productID].map(k => {
                     if (k.kanban_id === updatedKanban.kanban_id) {
-                        return { ...k, status_name: updatedKanban.status_name, status_color: updatedKanban.status_color, customer_supplier: updatedKanban.customer_supplier, status_current: updatedKanban.status_current, supplier_name: updatedKanban.supplier_name };
+                        return updatedKanban; // **REPLACE ENTIRE KANBAN OBJECT with updatedKanban from API response**
                     } else {
-                        return { ...k, 
-                            status_name: k.status_name, // **PRESERVE status_name**
-                            status_color: k.status_color, // **PRESERVE status_color**
-                            customer_supplier: k.customer_supplier, // **PRESERVE customer_supplier**
-                            status_current: k.status_current, // **PRESERVE status_current**
-                            supplier_name: k.supplier_name, // **PRESERVE supplier_name**
-                            ...k // **IMPORTANT: ALSO PRESERVE OTHER EXISTING PROPERTIES using spread operator**
-                         }; // Return k and PRESERVE ALL EXISTING PROPERTIES for other kanbans
+                        return k;
                     }
                 });
             }
@@ -131,7 +125,7 @@ const CustomerDashboard = () => {
                                 dashboardType="customer"
                                 setKanbans={handleKanbanUpdate}
                                 productID={product}
-                                isDashboardDataReady={isDashboardDataReady} // **VERIFY THIS LINE VERY CAREFULLY**
+                                isDashboardDataReady={isDashboardDataReady}
                                 onStatusChangeSuccess={handleStatusChangeSuccess} 
                             />
                         ))}

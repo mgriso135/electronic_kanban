@@ -82,16 +82,17 @@ const SupplierDashboard = () => {
             for (const product in updatedKanbansByProduct) {
                 updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
                     if (k.kanban_id === updatedKanban.kanban_id) {
-                        return { ...k, status_name: updatedKanban.status_name, status_color: updatedKanban.status_color, customer_supplier: updatedKanban.customer_supplier, status_current: updatedKanban.status_current, supplier_name: updatedKanban.supplier_name };
+                        return { ...k, status_name: updatedKanban.status_name, status_color: updatedKanban.status_color, customer_supplier: updatedKanban.customer_supplier, status_current: updatedKanban.status_current }; // UPDATED - Removed customer/supplier name updates
                     } else {
                         return { ...k, 
-                            status_name: k.status_name, // **PRESERVE status_name**
-                            status_color: k.status_color, // **PRESERVE status_color**
-                            customer_supplier: k.customer_supplier, // **PRESERVE customer_supplier**
-                            status_current: k.status_current, // **PRESERVE status_current**
-                            supplier_name: k.supplier_name, // **PRESERVE supplier_name**
-                            ...k // **IMPORTANT: ALSO PRESERVE OTHER EXISTING PROPERTIES using spread operator**
-                         }; // Return k and PRESERVE ALL EXISTING PROPERTIES for other kanbans
+                            status_name: k.status_name,
+                            status_color: k.status_color,
+                            customer_supplier: k.customer_supplier,
+                            status_current: k.status_current,
+                            customer_name: k.customer_name, // Keep customer_name preservation (SupplierDashboard)
+                            supplier_name: k.supplier_name, // Keep supplier_name preservation (CustomerDashboard)
+                            ...k 
+                         }; 
                     }
                 });
             }
