@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
-import { useParams, useNavigate, useLocation } from 'react-router-dom'; // Import useNavigate, useLocation
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import KanbanCard from '../kanbans/KanbanCard';
 
 const SupplierDashboard = () => {
     const { supplierId } = useParams();
-    const navigate = useNavigate(); // Hook for navigation
-    const location = useLocation(); // Hook to get current location
+    const navigate = useNavigate(); 
     const [kanbansByProduct, setKanbansByProduct] = useState({});
     const [availableSuppliers, setAvailableSuppliers] = useState([]);
     const [selectedSupplierId, setSelectedSupplierId] = useState(supplierId || '');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isDashboardDataReady, setIsDashboardDataReady] = useState(false); // ADD NEW isDashboardDataReady STATE
+
 
     useEffect(() => {
         fetchSuppliersAndKanbans();
@@ -17,27 +19,33 @@ const SupplierDashboard = () => {
     }, [selectedSupplierId]);
 
     const fetchSuppliersAndKanbans = async () => {
+        setIsLoading(true);
+        setIsDashboardDataReady(false); // **SET isDashboardDataReady to FALSE at start of fetch**
         try {
             const accountsResponse = await api.get('/accounts');
+            // Filter for suppliers only
             const suppliers = accountsResponse.data;
             setAvailableSuppliers(suppliers);
 
-            // If supplierId is in URL, use it, otherwise default to first supplier or empty selection
             const initialSupplierId = supplierId || (suppliers.length > 0 ? suppliers[0].id : '');
             setSelectedSupplierId(initialSupplierId);
 
-            if (initialSupplierId) { // Fetch kanbans only if a supplier is selected
+
+            if (initialSupplierId) {
                 const kanbanResponse = await api.get(`/dashboards/supplier/${initialSupplierId}`);
                 let kanbans = kanbanResponse.data.kanbans_by_product;
                 kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
                 setKanbansByProduct(kanbans);
             } else {
-                setKanbansByProduct({}); // Clear kanbans if no supplier selected
+                setKanbansByProduct({});
             }
 
 
         } catch (error) {
             console.error("Error fetching data for supplier dashboard", error);
+        } finally {
+            setIsLoading(false);
+            setIsDashboardDataReady(true); // **SET isDashboardDataReady to TRUE in finally block** - Data loading is complete
         }
     };
 
@@ -46,47 +54,55 @@ const SupplierDashboard = () => {
         setSelectedSupplierId(newSupplierId);
 
         if (newSupplierId) {
-            navigate(`/supplier-dashboard/${newSupplierId}`); // Update URL to include supplierId
+            navigate(`/supplier-dashboard/${newSupplierId}`);
         } else {
-            navigate(`/supplier-dashboard`); // Navigate to generic dashboard if no supplier selected
+            navigate(`/supplier-dashboard`);
         }
     };
 
 
-    const sortKanbansByCustomerSupplierAndDate = useCallback((kanbans) => { // Use useCallback
-        const sortedKanbans = { ...kanbans };
+    const sortKanbansByCustomerSupplierAndDate = useCallback((kanbans) => {
+        const sortedKanbans = { ...kanbans }; // Create a copy to avoid modifying original
         for (const product in sortedKanbans) {
             sortedKanbans[product].sort((a, b) => {
-                const aMatch = a.customer_supplier === 1 ? -1 : 1;
-                const bMatch = b.customer_supplier === 1 ? -1 : 1;
+                const aMatch = a.customer_supplier === 1 ? -1 : 1; // Move matching to front
+                const bMatch = b.customer_supplier === 1 ? -1 : 1; // Move matching to front
                 if (aMatch !== bMatch) {
                     return aMatch - bMatch;
                 }
-                return new Date(a.data_aggiornamento) - new Date(b.data_aggiornamento);
+                return new Date(a.data_aggiornamento) - new Date(b.data_aggiornamento); // Sort by date
             });
         }
         return sortedKanbans;
     }, []);
 
-    const handleKanbanUpdate = useCallback((updatedKanban, productID) => { // Use useCallback and accept productID
+    const handleKanbanUpdate = useCallback((updatedKanban, productID) => {
         setKanbansByProduct(prevKanbansByProduct => {
-            // Safety checks (already present - keep them)
-            if (!prevKanbansByProduct || !prevKanbansByProduct[productID] || !Array.isArray(prevKanbansByProduct[productID])) {
-                console.warn("handleKanbanUpdate: prevKanbansByProduct or product data is not properly initialized yet.");
-                return prevKanbansByProduct || {};
+            const updatedKanbansByProduct = { ...prevKanbansByProduct };
+            for (const product in updatedKanbansByProduct) {
+                updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
+                    if (k.kanban_id === updatedKanban.kanban_id) {
+                        return { ...k, status_name: updatedKanban.status_name, status_color: updatedKanban.status_color, customer_supplier: updatedKanban.customer_supplier, status_current: updatedKanban.status_current, supplier_name: updatedKanban.supplier_name };
+                    } else {
+                        return { ...k, 
+                            status_name: k.status_name, // **PRESERVE status_name**
+                            status_color: k.status_color, // **PRESERVE status_color**
+                            customer_supplier: k.customer_supplier, // **PRESERVE customer_supplier**
+                            status_current: k.status_current, // **PRESERVE status_current**
+                            supplier_name: k.supplier_name, // **PRESERVE supplier_name**
+                            ...k // **IMPORTANT: ALSO PRESERVE OTHER EXISTING PROPERTIES using spread operator**
+                         }; // Return k and PRESERVE ALL EXISTING PROPERTIES for other kanbans
+                    }
+                });
             }
-
-            const updatedProductKanbans = prevKanbansByProduct[productID].map(k =>
-                k.kanban_id === updatedKanban.kanban_id ? updatedKanban : k
-            );
-
-            // Create a NEW kanbansByProduct object instead of modifying in-place
-            const nextKanbansByProduct = { ...prevKanbansByProduct }; // Start with a copy
-            nextKanbansByProduct[productID] = sortKanbansByCustomerSupplierAndDate({ [productID]: updatedProductKanbans })[productID]; // Re-sort and assign
-
-            return nextKanbansByProduct; // Return the completely new object
+            return updatedKanbansByProduct;
         });
-    }, [sortKanbansByCustomerSupplierAndDate]); // Dependency array includes sort function
+    }, []);
+
+    const handleStatusChangeSuccess = useCallback(() => {
+        console.log("SupplierDashboard - handleStatusChangeSuccess CALLED - Re-fetching Kanban data");
+        fetchSuppliersAndKanbans(); // Re-fetch data from API
+    }, [fetchSuppliersAndKanbans]);
 
     return (
         <div>
@@ -94,7 +110,7 @@ const SupplierDashboard = () => {
 
             <div>
                 <label>Select Supplier:</label>
-                <select value={selectedSupplierId} onChange={handleSupplierChange}>
+                <select value={selectedSupplierId} onChange={handleSupplierChange} disabled={isLoading}>
                     <option value="">Select a Supplier</option>
                     {availableSuppliers.map(supplier => (
                         <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
@@ -102,29 +118,34 @@ const SupplierDashboard = () => {
                 </select>
             </div>
 
-            {selectedSupplierId && Object.keys(kanbansByProduct).length > 0 ? ( // Conditionally render kanban data
-                Object.keys(kanbansByProduct).map(product => (
-                    <div key={product}>
-                        <h3>{product}</h3>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-                            {kanbansByProduct[product].map(kanban => (
-                                <KanbanCard
-                                    key={kanban.kanban_id}
-                                    kanban={kanban}
-                                    dashboardType="supplier"
-                                    setKanbans={handleKanbanUpdate} // Pass handleKanbanUpdate
-                                    productID={product}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                ))
+            {isLoading ? (
+                <p>Loading Kanban data...</p>
             ) : (
-                selectedSupplierId ? <p>No Kanban data found for this supplier.</p> : <p>Please select a supplier to view Kanban data</p>
-            )}
+                Object.keys(kanbansByProduct).length > 0 ? (
+                    Object.keys(kanbansByProduct).map(product => (
+                        <div key={product}>
+                            <h3>{product}</h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+                            {kanbansByProduct[product].map(kanban => (
+                            <KanbanCard
+                                key={kanban.kanban_id}
+                                kanban={kanban}
+                                dashboardType="supplier"
+                                setKanbans={handleKanbanUpdate}
+                                productID={product}
+                                isDashboardDataReady={isDashboardDataReady}
+                                onStatusChangeSuccess={handleStatusChangeSuccess} 
+                            />
+                        ))}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <p>Please select a supplier to view Kanban data</p>
+                ))}
 
-        </div>
-    );
-};
+            </div>
+        );
+    };
 
 export default SupplierDashboard;

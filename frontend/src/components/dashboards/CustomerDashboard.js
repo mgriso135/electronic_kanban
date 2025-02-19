@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import KanbanCard from '../kanbans/KanbanCard';
 
 const CustomerDashboard = () => {
     const { customerId } = useParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const [kanbansByProduct, setKanbansByProduct] = useState({});
     const [availableCustomers, setAvailableCustomers] = useState([]);
     const [selectedCustomerId, setSelectedCustomerId] = useState(customerId || '');
-    const [isLoading, setIsLoading] = useState(false); // Keep isLoading state INTERNALLY
+    const [isLoading, setIsLoading] = useState(false);
+    const [isDashboardDataReady, setIsDashboardDataReady] = useState(false); // ADD NEW isDashboardDataReady STATE
+
 
     useEffect(() => {
         fetchCustomersAndKanbans();
@@ -18,81 +19,89 @@ const CustomerDashboard = () => {
     }, [selectedCustomerId]);
 
     const fetchCustomersAndKanbans = async () => {
-        setIsLoading(true); // Set loading to true at start
+        setIsLoading(true);
+        setIsDashboardDataReady(false); // **SET isDashboardDataReady to FALSE at start of fetch**
         try {
             const accountsResponse = await api.get('/accounts');
+            // Filter for customers only
             const customers = accountsResponse.data;
             setAvailableCustomers(customers);
 
             const initialCustomerId = customerId || (customers.length > 0 ? customers[0].id : '');
             setSelectedCustomerId(initialCustomerId);
 
+
             if (initialCustomerId) {
-                const kanbanResponse = await api.get(`/dashboards/customer/${initialCustomerId}`);
+                const kanbanResponse = await api.get(`/dashboards/customer/${selectedCustomerId}`);
                 let kanbans = kanbanResponse.data.kanbans_by_product;
                 kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
                 setKanbansByProduct(kanbans);
             } else {
                 setKanbansByProduct({});
             }
+
+
         } catch (error) {
             console.error("Error fetching data for customer dashboard", error);
         } finally {
-            setIsLoading(false); // Set loading to false in finally block
+            setIsLoading(false);
+            setIsDashboardDataReady(true); // **SET isDashboardDataReady to TRUE in finally block** - Data loading is complete
         }
     };
 
-    const handleCustomerChange = (e) => {
+    const handleCustomerChange = (e) => { // **CORRECT handleCustomerChange FOR CUSTOMER DASHBOARD**
         const newCustomerId = e.target.value;
         setSelectedCustomerId(newCustomerId);
 
         if (newCustomerId) {
-            navigate(`/customer-dashboard/${newCustomerId}`);
+            navigate(`/customer-dashboard/${newCustomerId}`); // Navigate to customer-dashboard/:customerId
         } else {
-            navigate(`/customer-dashboard`);
+            navigate(`/customer-dashboard`); // Navigate to customer-dashboard
         }
     };
 
     const sortKanbansByCustomerSupplierAndDate = useCallback((kanbans) => {
-        const sortedKanbans = { ...kanbans };
+        const sortedKanbans = { ...kanbans }; // Create a copy to avoid modifying original
         for (const product in sortedKanbans) {
             sortedKanbans[product].sort((a, b) => {
-                const aMatch = a.customer_supplier === 2 ? -1 : 1;
-                const bMatch = b.customer_supplier === 2 ? -1 : 1;
+                const aMatch = a.customer_supplier === 2 ? -1 : 1; // Move matching to front
+                const bMatch = b.customer_supplier === 2 ? -1 : 1; // Move matching to front
                 if (aMatch !== bMatch) {
                     return aMatch - bMatch;
                 }
-                return new Date(a.data_aggiornamento) - new Date(b.data_aggiornamento);
+                return new Date(a.data_aggiornamento) - new Date(b.data_aggiornamento); // Sort by date
             });
         }
         return sortedKanbans;
     }, []);
 
-
     const handleKanbanUpdate = useCallback((updatedKanban, productID) => {
-        // **ADD CONDITIONAL CHECK AT THE VERY BEGINNING:**
-        if (!kanbansByProduct || !kanbansByProduct[productID] || !Array.isArray(kanbansByProduct[productID])) {
-            console.warn("handleKanbanUpdate: Data not ready, aborting update. productID:", productID);
-            return; // ABORT FUNCTION IF DATA IS NOT READY
-        }
-
-
         setKanbansByProduct(prevKanbansByProduct => {
-            // Safety checks (already present - keep them, but they might be redundant now)
-            if (!prevKanbansByProduct || !prevKanbansByProduct[productID] || !Array.isArray(prevKanbansByProduct[productID])) {
-                console.warn("handleKanbanUpdate: prevKanbansByProduct or product data is not properly initialized yet (inside setState). This should not happen frequently now.");
-                return prevKanbansByProduct || {}; // Redundant safety return, but keep it.
+            const updatedKanbansByProduct = { ...prevKanbansByProduct };
+            for (const product in updatedKanbansByProduct) {
+                updatedKanbansByProduct[product] = updatedKanbansByProduct[product].map(k => {
+                    if (k.kanban_id === updatedKanban.kanban_id) {
+                        return { ...k, status_name: updatedKanban.status_name, status_color: updatedKanban.status_color, customer_supplier: updatedKanban.customer_supplier, status_current: updatedKanban.status_current, supplier_name: updatedKanban.supplier_name };
+                    } else {
+                        return { ...k, 
+                            status_name: k.status_name, // **PRESERVE status_name**
+                            status_color: k.status_color, // **PRESERVE status_color**
+                            customer_supplier: k.customer_supplier, // **PRESERVE customer_supplier**
+                            status_current: k.status_current, // **PRESERVE status_current**
+                            supplier_name: k.supplier_name, // **PRESERVE supplier_name**
+                            ...k // **IMPORTANT: ALSO PRESERVE OTHER EXISTING PROPERTIES using spread operator**
+                         }; // Return k and PRESERVE ALL EXISTING PROPERTIES for other kanbans
+                    }
+                });
             }
-
-            const updatedProductKanbans = prevKanbansByProduct[productID].map(k =>
-                k.kanban_id === updatedKanban.kanban_id ? updatedKanban : k
-            );
-            const nextKanbansByProduct = { ...prevKanbansByProduct };
-            nextKanbansByProduct[productID] = sortKanbansByCustomerSupplierAndDate({ [productID]: updatedProductKanbans })[productID];
-            return nextKanbansByProduct;
+            return updatedKanbansByProduct;
         });
-    }, [sortKanbansByCustomerSupplierAndDate, kanbansByProduct]); // Keep kanbansByProduct in dependency array for now
+    }, []);
 
+    const handleStatusChangeSuccess = useCallback(() => {
+        console.log("CustomerDashboard - handleStatusChangeSuccess CALLED - Re-fetching Kanban data");
+        fetchCustomersAndKanbans(); // Re-fetch data from API
+    }, [fetchCustomersAndKanbans]);
 
     return (
         <div>
@@ -107,27 +116,33 @@ const CustomerDashboard = () => {
                 </select>
             </div>
 
-            {/* Conditional rendering for the entire Kanban card section */}
-            {!isLoading && selectedCustomerId && Object.keys(kanbansByProduct).length > 0 ? (
-                Object.keys(kanbansByProduct).map(product => (
-                    <div key={product}>
-                        <h3>{product}</h3>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-                            {kanbansByProduct[product].map(kanban => (
-                                <KanbanCard 
-                                key={kanban.kanban_id} 
-                                kanban={kanban} 
-                                dashboardType="customer" 
-                                setKanbans={handleKanbanUpdate}  // Function as setKanbans
-                                productID={product}             // Product ID string as productID
-                            />
-                            ))}
-                        </div>
-                    </div>
-                ))
+            {isLoading ? (
+                <p>Loading Kanban data...</p>
             ) : (
-                selectedCustomerId ? <p>No Kanban data found for this customer.</p> : <p>Please select a customer to view Kanban data</p>
-            )}
+                Object.keys(kanbansByProduct).length > 0 ? (
+                    Object.keys(kanbansByProduct).map(product => (
+                        <div key={product}>
+                            <h3>{product}</h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+                            {kanbansByProduct[product].map(kanban => (
+                            <KanbanCard
+                                key={kanban.kanban_id}
+                                kanban={kanban}
+                                dashboardType="customer"
+                                setKanbans={handleKanbanUpdate}
+                                productID={product}
+                                isDashboardDataReady={isDashboardDataReady} // **VERIFY THIS LINE VERY CAREFULLY**
+                                onStatusChangeSuccess={handleStatusChangeSuccess} 
+                            />
+                        ))}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <p>Please select a customer to view Kanban data</p>
+                ))}
+
+
         </div>
     );
 };
