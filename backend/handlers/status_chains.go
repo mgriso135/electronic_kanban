@@ -323,7 +323,7 @@ func getStatusChainStatuses(db *sql.DB, statusChainID int64) ([]map[string]inter
 	for rows.Next() {
 		var statusID int64
 		var statusName string
-		var statusColor string
+		var statusColor *string
 		var order int64
 		var customerSupplier int
 

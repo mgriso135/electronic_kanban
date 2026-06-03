@@ -202,18 +202,24 @@ func getKanbanChains(db *sql.DB) ([]map[string]interface{}, error) {
 			c.name AS customer_name,
 			kc.cliente_id,
 			p.name AS product_name,
-            kc.prodotto_codice,
+			kc.prodotto_codice,
 			s.name AS supplier_name,
 			kc.fornitore_id,
 			kc.leadtime_days,
 			kc.quantity,
 			kc.tipo_contenitore,
 			kc.status_chain_id,
-			kc.no_of_active_kanbans
+			COALESCE(k_count.active_count, 0) AS no_of_active_kanbans
 		FROM kanban_chains kc
 		JOIN accounts c ON kc.cliente_id = c.id
 		JOIN products p ON kc.prodotto_codice = p.product_id
-        JOIN accounts s ON kc.fornitore_id = s.id
+		JOIN accounts s ON kc.fornitore_id = s.id
+		LEFT JOIN (
+			SELECT kanban_chain_id, COUNT(*) AS active_count
+			FROM kanbans
+			WHERE is_active = true
+			GROUP BY kanban_chain_id
+		) k_count ON kc.id = k_count.kanban_chain_id
 	`)
 	if err != nil {
 		return nil, err
@@ -292,10 +298,11 @@ func createKanbanChain(db *sql.DB, kc models.KanbanChain) (*models.KanbanChain, 
 func getKanbanChainByID(db *sql.DB, id int64) (*models.KanbanChain, error) {
 	sqlStatement := `
 		SELECT
-			id, cliente_id, prodotto_codice, fornitore_id, leadtime_days,
-			quantity, tipo_contenitore, status_chain_id, no_of_active_kanbans
-		FROM kanban_chains
-		WHERE id = $1
+			kc.id, kc.cliente_id, kc.prodotto_codice, kc.fornitore_id, kc.leadtime_days,
+			kc.quantity, kc.tipo_contenitore, kc.status_chain_id,
+			COALESCE((SELECT COUNT(*) FROM kanbans WHERE kanban_chain_id = kc.id AND is_active = true), 0) AS no_of_active_kanbans
+		FROM kanban_chains kc
+		WHERE kc.id = $1
 	`
 	var kc models.KanbanChain
 	err := db.QueryRow(sqlStatement, id).Scan(

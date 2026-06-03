@@ -14,7 +14,7 @@ const KanbanForm = () => {
     const [isActive, setIsActive] = useState(true);
     const [isEdit, setIsEdit] = useState(false);
     const [availableKanbanChains, setAvailableKanbanChains] = useState([]);
-    const [availableStatuses, setAvailableStatuses] = useState([]);
+
     const [statusChainStatuses, setStatusChainStatuses] = useState([]); // NEW state for status chain statuses
 
 
@@ -23,8 +23,7 @@ const KanbanForm = () => {
             try {
                 const kanbanChainsResponse = await api.get('/kanban-chains');
                 setAvailableKanbanChains(kanbanChainsResponse.data);
-                const statusesResponse = await api.get('/statuses');
-                setAvailableStatuses(statusesResponse.data);
+
 
             } catch (error) {
                 console.error("Error fetching dropdown data:", error);
@@ -95,14 +94,14 @@ const KanbanForm = () => {
         const kanbanData = {
             ...(isEdit ? {
                 leadtime_days: parseInt(leadtimeDays, 10),
-                tipoContenitore: tipoContenitore,
+                tipo_contenitore: tipoContenitore,
                 quantity: parseFloat(quantity),
             } : { // Include all fields in create mode
                 kanban_chain_id: parseInt(kanbanChainId, 10),
                 status_chain_id: parseInt(statusChainId, 10),
                 status_current: parseInt(statusCurrent, 10),
                 leadtime_days: parseInt(leadtimeDays, 10),
-                tipoContenitore: tipoContenitore,
+                tipo_contenitore: tipoContenitore,
                 quantity: parseFloat(quantity),
                 is_active: isActive,
             })

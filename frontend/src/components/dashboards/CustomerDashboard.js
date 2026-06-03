@@ -10,55 +10,8 @@ const CustomerDashboard = () => {
     const [availableCustomers, setAvailableCustomers] = useState([]);
     const [selectedCustomerId, setSelectedCustomerId] = useState(customerId || '');
     const [isLoading, setIsLoading] = useState(false);
-    const [isDashboardDataReady, setIsDashboardDataReady] = useState(false); // ADD NEW isDashboardDataReady STATE
+    const [isDashboardDataReady, setIsDashboardDataReady] = useState(false);
 
-
-    useEffect(() => {
-        fetchCustomersAndKanbans();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCustomerId]);
-
-    const fetchCustomersAndKanbans = async () => {
-        setIsLoading(true);
-        setIsDashboardDataReady(false); // **SET isDashboardDataReady to FALSE at start of fetch**
-        try {
-            const accountsResponse = await api.get('/accounts');
-            // Filter for customers only
-            const customers = accountsResponse.data;
-            setAvailableCustomers(customers);
-
-            const initialCustomerId = customerId || (customers.length > 0 ? customers[0].id : '');
-            setSelectedCustomerId(initialCustomerId);
-
-
-            if (initialCustomerId) {
-                const kanbanResponse = await api.get(`/dashboards/customer/${selectedCustomerId}`);
-                let kanbans = kanbanResponse.data.kanbans_by_product;
-                kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
-                setKanbansByProduct(kanbans);
-            } else {
-                setKanbansByProduct({});
-            }
-
-
-        } catch (error) {
-            console.error("Error fetching data for customer dashboard", error);
-        } finally {
-            setIsLoading(false);
-            setIsDashboardDataReady(true); // **SET isDashboardDataReady to TRUE in finally block** - Data loading is complete
-        }
-    };
-
-    const handleCustomerChange = (e) => { // **CORRECT handleCustomerChange FOR CUSTOMER DASHBOARD**
-        const newCustomerId = e.target.value;
-        setSelectedCustomerId(newCustomerId);
-
-        if (newCustomerId) {
-            navigate(`/customer-dashboard/${newCustomerId}`); // Navigate to customer-dashboard/:customerId
-        } else {
-            navigate(`/customer-dashboard`); // Navigate to customer-dashboard
-        }
-    };
 
     const sortKanbansByCustomerSupplierAndDate = useCallback((kanbans) => {
         const sortedKanbans = { ...kanbans }; // Create a copy to avoid modifying original
@@ -74,6 +27,61 @@ const CustomerDashboard = () => {
         }
         return sortedKanbans;
     }, []);
+
+    const fetchDashboardData = useCallback(async () => {
+        if (!selectedCustomerId) return;
+        setIsLoading(true);
+        setIsDashboardDataReady(false);
+        try {
+            const kanbanResponse = await api.get(`/dashboards/customer/${selectedCustomerId}`);
+            let kanbans = kanbanResponse.data.kanbans_by_product;
+            kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
+            setKanbansByProduct(kanbans);
+        } catch (error) {
+            console.error("Error fetching data for customer dashboard", error);
+        } finally {
+            setIsLoading(false);
+            setIsDashboardDataReady(true);
+        }
+    }, [selectedCustomerId, sortKanbansByCustomerSupplierAndDate]);
+
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const accountsResponse = await api.get('/accounts');
+                const customers = accountsResponse.data;
+                setAvailableCustomers(customers);
+
+                const initialCustomerId = customerId || (customers.length > 0 ? customers[0].id : '');
+                setSelectedCustomerId(initialCustomerId);
+            } catch (error) {
+                console.error("Error fetching customers", error);
+            }
+        };
+        fetchCustomers();
+    }, [customerId]);
+
+    useEffect(() => {
+        fetchDashboardData();
+
+        const intervalId = setInterval(() => {
+            console.log("CustomerDashboard: Polling dashboard data...");
+            fetchDashboardData();
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [fetchDashboardData]);
+
+    const handleCustomerChange = (e) => {
+        const newCustomerId = e.target.value;
+        setSelectedCustomerId(newCustomerId);
+
+        if (newCustomerId) {
+            navigate(`/customer-dashboard/${newCustomerId}`);
+        } else {
+            navigate(`/customer-dashboard`);
+        }
+    };
 
     const handleKanbanUpdate = useCallback((updatedKanban, productID) => {
         setKanbansByProduct(prevKanbansByProduct => {
@@ -94,8 +102,8 @@ const CustomerDashboard = () => {
 
     const handleStatusChangeSuccess = useCallback(() => {
         console.log("CustomerDashboard - handleStatusChangeSuccess CALLED - Re-fetching Kanban data");
-        fetchCustomersAndKanbans(); // Re-fetch data from API
-    }, [fetchCustomersAndKanbans]);
+        fetchDashboardData(); // Re-fetch dashboard data
+    }, [fetchDashboardData]);
 
     return (
         <div>

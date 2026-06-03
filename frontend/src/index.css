@@ -1,80 +1,556 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-gradient: linear-gradient(135deg, #090d16 0%, #111827 50%, #1a1528 100%);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.02);
+  --glass-bg-hover: rgba(255, 255, 255, 0.06);
+  --glass-border-hover: rgba(255, 255, 255, 0.15);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-blue: #38bdf8;
+  --accent-blue-rgb: 56, 189, 248;
+  --accent-purple: #c084fc;
+  --accent-purple-rgb: 192, 132, 252;
+  
+  --accent-gradient: linear-gradient(90deg, #38bdf8 0%, #c084fc 100%);
+  --btn-gradient: linear-gradient(135deg, #0284c7 0%, #7e22ce 100%);
+  --btn-gradient-hover: linear-gradient(135deg, #0ea5e9 0%, #9333ea 100%);
+  
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+  --shadow-sm: 0 4px 10px rgba(0, 0, 0, 0.3);
+  --blur-amount: blur(12px);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-main);
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-attachment: fixed;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
-/* Basic layout styles */
+/* Base Layout and Container styling */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-amount);
+  -webkit-backdrop-filter: var(--blur-amount);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  transition: var(--transition-smooth);
+}
+
+.glass-panel:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+}
+
+/* Navigation bar redesign */
 nav {
-  background-color: #333;
-  padding: 10px;
-  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: var(--blur-amount);
+  -webkit-backdrop-filter: var(--blur-amount);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 16px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 nav a {
-  color: white;
+  color: var(--text-secondary);
   text-decoration: none;
-  margin: 0 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+  border: 1px solid transparent;
 }
 
-nav a:hover {
-    text-decoration: underline
+nav a:hover, nav a.active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Main Content Wrapper */
+main, div > h2:first-of-type, div > form:first-of-type, div > table:first-of-type {
+  max-width: 100%;
+  margin: 32px auto;
+  padding: 0 24px;
+  width: 100%;
+}
 
+/* Apply wrapper styling for generic component divs */
+body > #root > div {
+  max-width: 100%;
+  margin: 32px auto;
+  padding: 0 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Headings and Typography */
 h2 {
-    margin-bottom: 20px
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+  position: relative;
+  display: inline-block;
 }
 
+h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-left: 4px solid var(--accent-blue);
+  padding-left: 12px;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Links */
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+a:hover {
+  color: var(--accent-purple);
+  text-decoration: none;
+}
+
+/* Buttons styling */
+button, input[type="submit"] {
+  background: var(--btn-gradient);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 22px;
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 12px rgba(126, 34, 206, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+button:hover, input[type="submit"]:hover {
+  background: var(--btn-gradient-hover);
+  box-shadow: 0 6px 16px rgba(126, 34, 206, 0.5);
+  transform: translateY(-1px);
+}
+
+button:active, input[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  background: var(--glass-bg);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  border-color: var(--glass-border);
+  transform: none;
+}
+
+/* Cancel / back links formatted as ghost buttons */
+a[href$="/kanbans"], a[href$="/products"], a[href$="/accounts"], a[href$="/status-chains"], a[href$="/kanban-chains"] {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-left: 12px;
+}
+
+a[href$="/kanbans"]:hover, a[href$="/products"]:hover, a[href$="/accounts"]:hover, a[href$="/status-chains"]:hover, a[href$="/kanban-chains"]:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: var(--glass-border-hover);
+}
+
+/* Forms styling */
+form {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  backdrop-filter: var(--blur-amount);
+  -webkit-backdrop-filter: var(--blur-amount);
+}
+
+form > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+form label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+form input[type="text"], 
+form input[type="number"], 
+form select {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-family: var(--font-main);
+  font-size: 1rem;
+  transition: var(--transition-smooth);
+  width: 100%;
+}
+
+form input[type="text"]:focus, 
+form input[type="number"]:focus, 
+form select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+form input[type="text"]:disabled, 
+form input[type="number"]:disabled,
+form select:disabled {
+  background: rgba(255, 255, 255, 0.01);
+  color: var(--text-muted);
+  border-color: var(--glass-border);
+  cursor: not-allowed;
+}
+
+/* Checkbox specific wrapper styling */
+form input[type="checkbox"] {
+  width: auto;
+  align-self: flex-start;
+  margin-top: 4px;
+  accent-color: var(--accent-purple);
+  width: 20px;
+  height: 20px;
+  cursor: not-allowed;
+}
+
+/* Custom Dropdown Filters */
+div > label[for="productFilter"] {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 12px;
+}
+
+select#productFilter {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 80px;
+  width: 100%;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  transition: var(--transition-smooth);
+}
+
+select#productFilter:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+/* Glassmorphism Tables */
 table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 20px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-amount);
+  -webkit-backdrop-filter: var(--blur-amount);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
 
 th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border);
 }
 
 th {
-    background-color: #f2f2f2;
+  background: rgba(15, 23, 42, 0.4);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-button {
-    margin-left: 10px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    cursor: pointer;
-    border-radius: 5px;
+tr:last-child td {
+  border-bottom: none;
 }
 
-button:hover {
-  background-color: #0056b3;
+tr {
+  transition: var(--transition-smooth);
 }
 
-input, select{
-    margin-bottom: 10px;
-    padding: 8px;
-    border: 1px solid #ccc;
+tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
 }
 
+/* Custom styles for entity Lists */
+div > a[href$="/new"] {
+  align-self: flex-start;
+  background: var(--btn-gradient);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 12px rgba(126, 34, 206, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+div > a[href$="/new"]:hover {
+  background: var(--btn-gradient-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(126, 34, 206, 0.5);
+}
+
+table td button {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--accent-rose);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+table td button:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.4);
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.2);
+}
+
+table td a {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent-blue);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+table td a:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+/* Kanban Cards Redesign (Frosted Glass Panels) */
 .kanban-card {
-    border: 1px solid #ddd;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    width: fit-content;
-    margin-bottom: 15px;
+  background: rgba(15, 23, 42, 0.35) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  width: 220px !important;
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+  transition: var(--transition-smooth) !important;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.kanban-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.kanban-card-id {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: monospace;
+  background: rgba(255,255,255,0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.kanban-card h2 {
+  font-size: 1.1rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+  color: var(--text-primary) !important;
+  margin: 0;
+  text-align: right;
+}
+
+.kanban-card-body p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.kanban-card-body p strong {
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  margin-right: 8px;
+}
+
+.kanban-card-timestamp {
+  font-size: 0.75rem !important;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* Glowing Indicator inside card */
+.kanban-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: inherit; /* will fallback or be overridden by element border color style */
+  background-color: inherit;
+}
+
+.kanban-card button {
+  width: 100%;
+  margin-left: 0;
+  margin-top: 12px;
+  background: var(--accent-gradient);
+  border: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 10px rgba(56, 189, 248, 0.2);
+}
+
+.kanban-card button:hover {
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+}
+
+/* Dashboard Filters Styling */
+div > select[value] {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-family: var(--font-main);
+  font-size: 1rem;
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+div > select[value]:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+label {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+/* Alert Messages */
+p[style*="red"], .error-message {
+  color: var(--accent-rose);
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  margin-top: 12px;
 }

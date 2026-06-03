@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
 
@@ -9,20 +9,19 @@ const KanbanList = () => {
 
     useEffect(() => {
         fetchProducts();
-        fetchKanbans(); // Fetch all kanbans initially
     }, []);
 
-    const fetchKanbans = async () => {
+    const fetchKanbans = useCallback(async () => {
         try {
             const params = new URLSearchParams();
-            selectedProductIds.forEach(id => params.append("product_id", id)); // Append selected product IDs as query params
+            selectedProductIds.forEach(id => params.append("product_id", id));
 
             const response = await api.get('/kanbans?' + params.toString());
-            setKanbans(response.data); // Data is now an array of maps
+            setKanbans(response.data);
         } catch (error) {
             console.error('Error fetching kanbans:', error);
         }
-    };
+    }, [selectedProductIds]);
 
     const fetchProducts = async () => {
         try {
@@ -39,8 +38,8 @@ const KanbanList = () => {
     };
 
     useEffect(() => {
-        fetchKanbans(); // Refetch kanbans when selectedProductIds change
-    }, [selectedProductIds]);
+        fetchKanbans();
+    }, [fetchKanbans]);
 
 
     const handleDelete = async (id) => {
@@ -98,7 +97,19 @@ const KanbanList = () => {
                             <td>{kanban.leadtime_days}</td>
                             <td>{kanban.tipo_contenitore}</td>
                             <td>{kanban.quantity}</td>
-                            <td>{kanban.status_current}</td>
+                            <td>
+                                <span style={{ 
+                                    backgroundColor: kanban.status_color || '#e0e0e0', 
+                                    color: '#fff', 
+                                    padding: '4px 8px', 
+                                    borderRadius: '12px', 
+                                    fontSize: '0.85em',
+                                    fontWeight: 'bold',
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                                }}>
+                                    {kanban.status_name || `ID: ${kanban.status_current}`}
+                                </span>
+                            </td>
                             <td>{kanban.product_id}</td>
                             <td>{kanban.product_name}</td>
                             <td>

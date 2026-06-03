@@ -212,13 +212,17 @@ func getKanbans(db *sql.DB, productIDs []string) ([]map[string]interface{}, erro
 			k.tipo_contenitore,
 			k.quantity,
 			p.product_id AS product_id,  -- Include product_id
-			p.name AS product_name       -- Include product_name
+			p.name AS product_name,       -- Include product_name
+			s.name AS status_name,        -- Include status_name
+			s.color AS status_color       -- Include status_color
 		FROM
 			kanbans k
 		JOIN
 			kanban_chains kc ON k.kanban_chain_id = kc.id
 		JOIN
 			products p ON kc.prodotto_codice = p.product_id
+		LEFT JOIN
+			statuses s ON k.status_current = s.status_id
 		WHERE k.is_active=true
 	`
 	var args []interface{}
@@ -240,12 +244,16 @@ func getKanbans(db *sql.DB, productIDs []string) ([]map[string]interface{}, erro
 		var k models.Kanban
 		var productID string   // Temporary variable for product_id
 		var productName string // Temporary variable for product_name
+		var statusName sql.NullString
+		var statusColor sql.NullString
 
 		err := rows.Scan(
 			&k.ID, &k.DataAggiornamento, &k.LeadtimeDays, &k.IsActive, &k.KanbanChainID,
 			&k.StatusChainID, &k.StatusCurrent, &k.TipoContenitore, &k.Quantity,
 			&productID,   // Scan into temporary productID variable
 			&productName, // Scan into temporary productName variable
+			&statusName,  // Scan into temporary statusName variable
+			&statusColor, // Scan into temporary statusColor variable
 		)
 		if err != nil {
 			return nil, err
@@ -253,6 +261,14 @@ func getKanbans(db *sql.DB, productIDs []string) ([]map[string]interface{}, erro
 		// Assign temporary variables to the map
 		kanbanData["product_id"] = productID
 		kanbanData["product_name"] = productName
+		kanbanData["status_name"] = ""
+		if statusName.Valid {
+			kanbanData["status_name"] = statusName.String
+		}
+		kanbanData["status_color"] = ""
+		if statusColor.Valid {
+			kanbanData["status_color"] = statusColor.String
+		}
 
 		// Copy Kanban fields to the map as well, if needed for frontend
 		kanbanData["id"] = k.ID
@@ -336,6 +352,21 @@ func deleteKanban(db *sql.DB, id int64) error {
 
 func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models.Kanban, error) {
 	log.Printf("updateKanban: Starting, ID: %d, updates: %+v", id, updates)
+	
+	// Get the previous status before updating
+	var previousStatus int64
+	var statusUpdated bool
+	if statusCurrentFloat, ok := updates["status_current"].(float64); ok {
+		statusUpdated = true
+		previousKanban, err := getKanbanByID(db, id)
+		if err != nil {
+			log.Printf("updateKanban: Error fetching previous status: %v", err)
+		} else {
+			previousStatus = previousKanban.StatusCurrent
+		}
+		_ = statusCurrentFloat // avoid unused warning if not used elsewhere
+	}
+
 	// Start building the UPDATE query dynamically
 	sqlStatement := `UPDATE kanbans SET data_aggiornamento = NOW()` // Always update data_aggiornamento
 	var args []interface{}
@@ -365,9 +396,9 @@ func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models
 	log.Printf("updateKanban: Kanban updated succesfully with data: %+v", updatedKanban)
 
 	// Record history of status change if status_current was updated
-	if _, statusUpdated := updates["status_current"]; statusUpdated {
+	if statusUpdated {
 		log.Println("updateKanban: Recording status history")
-		if err := recordKanbanHistory(db, &updatedKanban, updates); err != nil {
+		if err := recordKanbanHistory(db, updatedKanban.ID, previousStatus, updatedKanban.StatusCurrent); err != nil {
 			// Log the history recording error, but don't fail the main update
 			fmt.Printf("updateKanban: Error recording kanban history: %v\n", err) // Or use a proper logger
 		}
@@ -376,25 +407,14 @@ func updateKanban(db *sql.DB, id int64, updates map[string]interface{}) (*models
 	return &updatedKanban, nil
 }
 
-func recordKanbanHistory(db *sql.DB, updatedKanban *models.Kanban, updates map[string]interface{}) error {
-	var previousStatus int64
-	if statusCurrentFloat, ok := updates["status_current"].(float64); ok {
-		currentStatus := int64(statusCurrentFloat)
-		// Retrieve previous status from the kanban record before update
-		previousKanban, err := getKanbanByID(db, updatedKanban.ID) // Get Kanban before update to find previous status
-		if err != nil {
-			return fmt.Errorf("error fetching previous kanban status: %w", err)
-		}
-		previousStatus = previousKanban.StatusCurrent
-
-		sqlStatement := `
-			INSERT INTO kanban_histories (kanban_id, previous_status, next_status, data_aggiornamento)
-			VALUES ($1, $2, $3, NOW())
-		`
-		_, err = db.Exec(sqlStatement, updatedKanban.ID, previousStatus, currentStatus)
-		if err != nil {
-			return fmt.Errorf("error inserting kanban history: %w", err)
-		}
+func recordKanbanHistory(db *sql.DB, kanbanID int64, previousStatus int64, nextStatus int64) error {
+	sqlStatement := `
+		INSERT INTO kanban_histories (kanban_id, previous_status, next_status, data_aggiornamento)
+		VALUES ($1, $2, $3, NOW())
+	`
+	_, err := db.Exec(sqlStatement, kanbanID, previousStatus, nextStatus)
+	if err != nil {
+		return fmt.Errorf("error inserting kanban history: %w", err)
 	}
 	return nil
 }
@@ -440,8 +460,7 @@ func updateKanbanStatus(db *sql.DB, id int64) (*models.Kanban, error) {
 	log.Printf("updateKanbanStatus: Kanban status updated succesfully to status_id: %d", nextStatusID)
 
 	// Record history of status change if status_current was updated
-	updates := map[string]interface{}{"status_current": float64(nextStatusID)} // Pass nextStatusID as update
-	if err := recordKanbanHistory(db, &updatedKanban, updates); err != nil {
+	if err := recordKanbanHistory(db, updatedKanban.ID, currentKanban.StatusCurrent, updatedKanban.StatusCurrent); err != nil {
 		fmt.Printf("updateKanbanStatus: Error recording kanban history: %v\n", err) // Or use a proper logger
 	}
 
@@ -570,7 +589,7 @@ func getStatusChainStatusesOrdered(db *sql.DB, statusChainID int64) ([]map[strin
 	for rows.Next() {
 		var statusID int64
 		var statusName string
-		var statusColor string
+		var statusColor *string
 		var order int64
 		var customerSupplier int
 

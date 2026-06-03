@@ -13,54 +13,6 @@ const SupplierDashboard = () => {
     const [isDashboardDataReady, setIsDashboardDataReady] = useState(false); // ADD NEW isDashboardDataReady STATE
 
 
-    useEffect(() => {
-        fetchSuppliersAndKanbans();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedSupplierId]);
-
-    const fetchSuppliersAndKanbans = async () => {
-        setIsLoading(true);
-        setIsDashboardDataReady(false); // **SET isDashboardDataReady to FALSE at start of fetch**
-        try {
-            const accountsResponse = await api.get('/accounts');
-            // Filter for suppliers only
-            const suppliers = accountsResponse.data;
-            setAvailableSuppliers(suppliers);
-
-            const initialSupplierId = supplierId || (suppliers.length > 0 ? suppliers[0].id : '');
-            setSelectedSupplierId(initialSupplierId);
-
-
-            if (initialSupplierId) {
-                const kanbanResponse = await api.get(`/dashboards/supplier/${initialSupplierId}`);
-                let kanbans = kanbanResponse.data.kanbans_by_product;
-                kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
-                setKanbansByProduct(kanbans);
-            } else {
-                setKanbansByProduct({});
-            }
-
-
-        } catch (error) {
-            console.error("Error fetching data for supplier dashboard", error);
-        } finally {
-            setIsLoading(false);
-            setIsDashboardDataReady(true); // **SET isDashboardDataReady to TRUE in finally block** - Data loading is complete
-        }
-    };
-
-    const handleSupplierChange = (e) => {
-        const newSupplierId = e.target.value;
-        setSelectedSupplierId(newSupplierId);
-
-        if (newSupplierId) {
-            navigate(`/supplier-dashboard/${newSupplierId}`);
-        } else {
-            navigate(`/supplier-dashboard`);
-        }
-    };
-
-
     const sortKanbansByCustomerSupplierAndDate = useCallback((kanbans) => {
         const sortedKanbans = { ...kanbans }; // Create a copy to avoid modifying original
         for (const product in sortedKanbans) {
@@ -75,6 +27,61 @@ const SupplierDashboard = () => {
         }
         return sortedKanbans;
     }, []);
+
+    const fetchDashboardData = useCallback(async () => {
+        if (!selectedSupplierId) return;
+        setIsLoading(true);
+        setIsDashboardDataReady(false);
+        try {
+            const kanbanResponse = await api.get(`/dashboards/supplier/${selectedSupplierId}`);
+            let kanbans = kanbanResponse.data.kanbans_by_product;
+            kanbans = sortKanbansByCustomerSupplierAndDate(kanbans);
+            setKanbansByProduct(kanbans);
+        } catch (error) {
+            console.error("Error fetching data for supplier dashboard", error);
+        } finally {
+            setIsLoading(false);
+            setIsDashboardDataReady(true);
+        }
+    }, [selectedSupplierId, sortKanbansByCustomerSupplierAndDate]);
+
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const accountsResponse = await api.get('/accounts');
+                const suppliers = accountsResponse.data;
+                setAvailableSuppliers(suppliers);
+
+                const initialSupplierId = supplierId || (suppliers.length > 0 ? suppliers[0].id : '');
+                setSelectedSupplierId(initialSupplierId);
+            } catch (error) {
+                console.error("Error fetching suppliers", error);
+            }
+        };
+        fetchSuppliers();
+    }, [supplierId]);
+
+    useEffect(() => {
+        fetchDashboardData();
+
+        const intervalId = setInterval(() => {
+            console.log("SupplierDashboard: Polling dashboard data...");
+            fetchDashboardData();
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [fetchDashboardData]);
+
+    const handleSupplierChange = (e) => {
+        const newSupplierId = e.target.value;
+        setSelectedSupplierId(newSupplierId);
+
+        if (newSupplierId) {
+            navigate(`/supplier-dashboard/${newSupplierId}`);
+        } else {
+            navigate(`/supplier-dashboard`);
+        }
+    };
 
     const handleKanbanUpdate = useCallback((updatedKanban, productID) => {
         setKanbansByProduct(prevKanbansByProduct => {
@@ -102,8 +109,8 @@ const SupplierDashboard = () => {
 
     const handleStatusChangeSuccess = useCallback(() => {
         console.log("SupplierDashboard - handleStatusChangeSuccess CALLED - Re-fetching Kanban data");
-        fetchSuppliersAndKanbans(); // Re-fetch data from API
-    }, [fetchSuppliersAndKanbans]);
+        fetchDashboardData(); // Re-fetch dashboard data
+    }, [fetchDashboardData]);
 
     return (
         <div>
