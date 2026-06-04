@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api'; // Adjust if your backend runs on a different port or URL
+// Changed from http://localhost:8080/api to relative routing for production
+const API_BASE_URL = '/api'; 
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -22,6 +23,5 @@ const handleError = (error) => {
 
 // Add response interceptors
 api.interceptors.response.use(handleSuccess, handleError);
-
 
 export default api;

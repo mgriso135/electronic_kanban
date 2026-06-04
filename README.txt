@@ -1,5 +1,10 @@
 # Electronic Kanban Backend and Frontend
 
+## HOW TO COMPILE ON LINUX:
+cd ~/apps-production/electronic_kanban
+sudo docker compose build --no-cache frontend
+sudo docker compose up -d
+
 ## Project Description
 
 This project is a web-based Electronic Kanban system designed to manage and visualize Kanban workflows. It consists of a Go-based backend API and a React-based frontend user interface. The system allows users to manage accounts, products, statuses, status chains, kanban chains, and kanban cards, providing dashboards for suppliers and customers to track and interact with their respective kanbans.
