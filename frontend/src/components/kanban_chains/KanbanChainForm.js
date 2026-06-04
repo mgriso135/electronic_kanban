@@ -23,20 +23,23 @@ const KanbanChainForm = () => {
 
     useEffect(() => {
         const fetchDropdownData = async () => {
-            try {
-                const statusChainsResponse = await api.get('/status-chains');
-                setAvailableStatusChains(statusChainsResponse.data);
-                const customersResponse = await api.get('/accounts');
-                setAvailableCustomers(customersResponse.data);
-                const suppliersResponse = await api.get('/accounts');
-                setAvailableSuppliers(suppliersResponse.data);
-                const productsResponse = await api.get('/products');
-                setAvailableProducts(productsResponse.data);
+        try {
+            const statusChainsResponse = await api.get('/status-chains');
+            setAvailableStatusChains(statusChainsResponse.data || []); // Fallback to [] if null
 
-            } catch (error) {
-                console.error("Error fetching dropdown data:", error);
-            }
-        };
+            const customersResponse = await api.get('/accounts');
+            setAvailableCustomers(customersResponse.data || []);       // Fallback to [] if null
+
+            const suppliersResponse = await api.get('/accounts');
+            setAvailableSuppliers(suppliersResponse.data || []);       // Fallback to [] if null
+
+            const productsResponse = await api.get('/products');
+            setAvailableProducts(productsResponse.data || []);         // Fallback to [] if null
+
+        } catch (error) {
+            console.error("Error fetching dropdown data:", error);
+        }
+};
         fetchDropdownData();
 
         if (id) {
@@ -114,27 +117,27 @@ const KanbanChainForm = () => {
                     <label>Customer:</label>
                     <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} disabled={isEdit}>
                         <option value="">Select Customer</option>
-                        {availableCustomers.map(customer => (
+                        {(availableCustomers || []).map(customer => (
                             <option key={customer.id} value={customer.id}>{customer.name}</option>
-                        ))}
+                    ))}
                     </select>
                 </div>
                 <div>
                     <label>Supplier:</label>
                     <select value={fornitoreId} onChange={(e) => setFornitoreId(e.target.value)} disabled={isEdit}>
                         <option value="">Select Supplier</option>
-                        {availableSuppliers.map(supplier => (
-                            <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                        ))}
+                        {(availableSuppliers || []).map(supplier => (
+    <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+))}
                     </select>
                 </div>
                 <div>
                     <label>Product:</label>
                     <select value={prodottoCodice} onChange={(e) => setProdottoCodice(e.target.value)} disabled={isEdit}>
                         <option value="">Select Product</option>
-                        {availableProducts.map(product => (
-                            <option key={product.product_id} value={product.product_id}>{product.name} ({product.product_id})</option>
-                        ))}
+                        {(availableProducts || []).map(product => (
+    <option key={product.product_id} value={product.product_id}>{product.name} ({product.product_id})</option>
+))}
                     </select>
                 </div>
                 <div>
@@ -157,9 +160,9 @@ const KanbanChainForm = () => {
                     <label>Status Chain:</label>
                     <select value={statusChainId} onChange={(e) => setStatusChainId(e.target.value)} disabled={isEdit}>
                         <option value="">Select Status Chain</option>
-                        {availableStatusChains.map(chain => (
-                            <option key={chain.status_chain_id} value={chain.status_chain_id}>{chain.name}</option>
-                        ))}
+                        {(availableStatusChains || []).map(chain => (
+    <option key={chain.status_chain_id} value={chain.status_chain_id}>{chain.name}</option>
+))}
                     </select>
                 </div>
                 <div>

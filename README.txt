@@ -2,6 +2,7 @@
 
 ## HOW TO COMPILE ON LINUX:
 cd ~/apps-production/electronic_kanban
+sudo docker compose down
 sudo docker compose build --no-cache frontend
 sudo docker compose up -d
 
